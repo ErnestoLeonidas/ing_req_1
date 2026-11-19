@@ -1,0 +1,73 @@
+/* ===================== EvalAI · Mockups · estilos ===================== */
+:root {
+  --navy: #1F3864;
+  --navy-900: #14254A;
+  --gold: #C99A2E;
+  --page: #E5E8EE;
+  /* Series categóricas (validadas para daltonismo, 3 primeras ranuras) */
+  --curso-a: #2a78d6;
+  --curso-b: #eb6834;
+  --curso-c: #1baf7a;
+}
+
+body { background: var(--page); font-family: Inter, system-ui, 'Segoe UI', Arial, sans-serif; }
+
+/* ---------- Barra de control ---------- */
+.tb-btn { padding: .25rem .5rem; border-radius: .25rem; background: #334155; color: #fff; }
+.tb-btn:hover { background: #475569; }
+.tb-btn.on { background: var(--gold); color: #0f172a; font-weight: 600; }
+.prof-btn { padding: .25rem .65rem; border-radius: 999px; font-size: .78rem; background: #1e293b; color: #cbd5e1; border: 1px solid #334155; }
+.prof-btn:hover { border-color: #64748b; color: #fff; }
+.prof-btn.on { background: #fff; color: var(--navy); border-color: #fff; font-weight: 600; }
+
+.fab {
+  position: fixed; top: .5rem; right: .5rem; z-index: 50;
+  padding: .3rem .6rem; font-size: .72rem; border-radius: .5rem;
+  background: rgba(15, 23, 42, .65); color: #fff; opacity: .55;
+  transition: opacity .15s;
+}
+.fab:hover { opacity: 1; }
+.bar-open .fab { display: none; }
+.bar-open #stage { padding-top: 9.5rem; }
+
+/* ---------- Marcos ---------- */
+.sheet-shadow { box-shadow: 0 10px 30px rgba(15, 23, 42, .18); }
+.phone { width: 390px; height: 780px; border-radius: 44px; border: 12px solid #111827; overflow: hidden; position: relative; background: #fff; }
+.phone::before { content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 130px; height: 24px; background: #111827; border-radius: 0 0 16px 16px; z-index: 20; }
+.phone-scroll { overflow-y: auto; scrollbar-width: none; }
+.phone-scroll::-webkit-scrollbar { display: none; }
+
+/* ---------- Gráficos ---------- */
+.chart-box { position: relative; width: 100%; }
+.chart-box canvas { display: block; }
+.legend-sw { display: inline-block; width: 10px; height: 10px; border-radius: 3px; }
+
+/* ---------- Etiquetas y detalles ---------- */
+.concept-ribbon {
+  background: repeating-linear-gradient(135deg, #FBF1DC 0 10px, #f6e6c1 10px 20px);
+  color: #7a5a12; border: 1px solid #ecd49a;
+}
+.nav-item { display: flex; align-items: center; gap: .6rem; padding: .55rem .75rem; border-radius: .5rem; color: rgba(255,255,255,.72); cursor: pointer; }
+.nav-item:hover { background: rgba(255,255,255,.08); color: #fff; }
+.nav-item.on { background: rgba(255,255,255,.15); color: #fff; font-weight: 600; }
+.nav-dot { width: 6px; height: 6px; border-radius: 999px; background: currentColor; opacity: .6; }
+.nav-item.on .nav-dot { background: var(--gold); opacity: 1; }
+
+[data-go] { cursor: pointer; }
+
+/* ---------- Animaciones ---------- */
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.grow { animation: grow 3s ease-out forwards; }
+@keyframes grow { from { width: 5%; } to { width: 92%; } }
+.fade-in { animation: fade .25s ease-out; }
+@keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+.capturing .no-cap { display: none !important; }
+
+/* ---------- Modo captura (?shot) para exportar PNG al informe ---------- */
+.shot body { background: #fff; }
+.shot #toolbar, .shot .fab, .shot #toast { display: none !important; }
+.shot #stage { padding: 24px !important; }
+.shot .sheet-shadow { box-shadow: none; }
+.shot .fade-in { animation: none; }

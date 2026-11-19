@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EvalAI · Mockups</title>
+<script src="https://cdn.tailwindcss.com/3.4.16"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script>
+if (window.tailwind) tailwind.config = { theme: { extend: { colors: {
+  navy: { DEFAULT: '#1F3864', 50: '#EAF0F8', 100: '#D9E2F3', 700: '#1F3864', 900: '#14254A' },
+  gold: { DEFAULT: '#C99A2E', 50: '#FBF1DC' }
+}, fontFamily: { sans: ['Inter', 'system-ui', 'Segoe UI', 'Arial', 'sans-serif'] } } } };
+</script>
+<style>
+  body { background: #E5E8EE; }
+  .phone { width: 390px; height: 780px; border-radius: 44px; border: 12px solid #111827; overflow: hidden; position: relative; background: #fff; }
+  .phone::before { content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 130px; height: 24px; background: #111827; border-radius: 0 0 16px 16px; z-index: 20; }
+  .sheet-shadow { box-shadow: 0 10px 30px rgba(15,23,42,.18); }
+  .spin { animation: spin 1s linear infinite; } @keyframes spin { to { transform: rotate(360deg); } }
+  .grow { animation: grow 3s ease-out forwards; } @keyframes grow { from { width: 5%; } to { width: 92%; } }
+  .capturing .no-cap { display: none !important; }
+</style>
+</head>
+<body class="font-sans text-slate-800 antialiased">
+
+<!-- Barra de control (no forma parte del mockup) -->
+<div id="toolbar" class="fixed top-0 inset-x-0 z-50 bg-slate-900 text-white shadow-lg">
+  <div class="max-w-7xl mx-auto px-4 py-2 flex flex-wrap items-center gap-2">
+    <span class="font-semibold text-gold mr-1">EvalAI · Mockups</span>
+    <button id="prev" class="px-2 py-1 rounded bg-slate-700 hover:bg-slate-600" title="Anterior (←)">←</button>
+    <select id="screenSel" class="bg-slate-800 border border-slate-600 rounded px-2 py-1 text-sm max-w-[22rem]"></select>
+    <button id="next" class="px-2 py-1 rounded bg-slate-700 hover:bg-slate-600" title="Siguiente (→)">→</button>
+    <div id="states" class="flex flex-wrap gap-1 ml-2"></div>
+    <div class="ml-auto flex gap-2">
+      <button id="dl" class="px-3 py-1 rounded bg-gold text-slate-900 font-semibold hover:brightness-110 text-sm">Descargar PNG</button>
+      <button id="hide" class="px-3 py-1 rounded bg-slate-700 hover:bg-slate-600 text-sm" title="Tecla H">Ocultar barra</button>
+    </div>
+  </div>
+  <div id="hint" class="max-w-7xl mx-auto px-4 pb-2 text-xs text-slate-300"></div>
+</div>
+<button id="showBar" class="hidden fixed top-2 right-2 z-50 px-2 py-1 text-xs rounded bg-slate-900/70 text-white">Mostrar barra (H)</button>
+
+<main id="stage" class="pt-28 pb-10 px-4 min-h-screen overflow-x-auto"></main>
+<div id="toast" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white text-sm px-4 py-2 rounded-lg shadow-lg"></div>
+
+<script>
+// ===================== Datos de ejemplo =====================
+const CURR = {
+  'Matemática': {
+    '5° básico': [
+      { oa: 'OA 7 · Fracciones propias', ind: ['Representan fracciones propias de manera concreta y pictórica.', 'Comparan fracciones con igual denominador.'] },
+      { oa: 'OA 11 · Números decimales', ind: ['Leen y escriben decimales hasta la milésima.', 'Ordenan números decimales en la recta numérica.'] }
+    ],
+    '6° básico': [
+      { oa: 'OA 4 · Fracciones y números mixtos', ind: ['Convierten números mixtos en fracciones impropias.', 'Resuelven adiciones de fracciones con distinto denominador.'] },
+      { oa: 'OA 7 · Razones', ind: ['Explican el concepto de razón con ejemplos de la vida diaria.', 'Identifican razones equivalentes.', 'Resuelven problemas que involucran razones.'] },
+      { oa: 'OA 9 · Porcentajes', ind: ['Calculan el porcentaje de una cantidad.', 'Relacionan porcentajes con fracciones y decimales.'] }
+    ]
+  },
+  'Lenguaje y Comunicación': {
+    '5° básico': [{ oa: 'OA 3 · Lectura de textos variados', ind: ['Extraen información explícita de un texto.', 'Infieren el propósito del autor.'] }],
+    '6° básico': [
+      { oa: 'OA 4 · Textos literarios', ind: ['Describen a los personajes a partir de sus acciones.', 'Interpretan el lenguaje figurado.'] },
+      { oa: 'OA 6 · Textos no literarios', ind: ['Identifican la idea principal de un texto informativo.', 'Relacionan la información del texto con imágenes y tablas.'] }
+    ]
+  }
+};
+const IND = ['I1 · Explican el concepto de razón', 'I2 · Identifican razones equivalentes', 'I3 · Resuelven problemas con razones'];
+const Q0 = [
+  { t: 'En un curso hay 12 niñas y 18 niños. ¿Cuál es la razón entre niñas y niños?', a: ['12 : 30', '2 : 3', '3 : 2', '18 : 12'], c: 1, i: 0 },
+  { t: 'La razón entre lápices rojos y azules es 3 : 5. Si hay 15 lápices azules, ¿cuántos rojos hay?', a: ['5', '8', '9', '25'], c: 2, i: 2 },
+  { t: '¿Cuál de estas razones es equivalente a 4 : 6?', a: ['2 : 3', '3 : 4', '6 : 4', '4 : 10'], c: 0, i: 1 },
+  { t: 'Una receta usa 2 tazas de harina por cada taza de leche. ¿Qué razón hay entre harina y leche?', a: ['1 : 2', '2 : 1', '2 : 3', '3 : 1'], c: 1, i: 0 },
+  { t: 'Un plano tiene escala 1 : 100. Si una pieza mide 4 cm en el plano, ¿cuánto mide en la realidad?', a: ['40 cm', '104 cm', '400 cm', '4.000 cm'], c: 2, i: 2 },
+  { t: 'En una bolsa hay 5 bolitas verdes y 10 amarillas. ¿Qué razón equivalente representa verdes a amarillas?', a: ['1 : 2', '1 : 3', '2 : 1', '5 : 15'], c: 0, i: 1 },
+  { t: 'En un refugio la razón entre perros y gatos es 4 : 1. Si hay 20 animales, ¿cuántos gatos hay?', a: ['4', '5', '16', '1'], c: 0, i: 2 },
+  { t: '¿Qué significa que la razón entre cuadrados y círculos sea 3 : 4?', a: ['Por cada 3 cuadrados hay 4 círculos.', 'Por cada 3 círculos hay 4 cuadrados.', 'Siempre hay 7 figuras en total.', 'Hay más cuadrados que círculos.'], c: 0, i: 0 },
+  { t: 'Juan lee 2 páginas en 5 minutos. A ese ritmo, ¿cuántas páginas lee en 20 minutos?', a: ['4', '8', '10', '40'], c: 1, i: 2 },
+  { t: 'En un curso de 30 estudiantes, la razón entre quienes traen colación y quienes no es 2 : 1. ¿Cuántos traen colación?', a: ['10', '15', '20', '25'], c: 2, i: 2 }
+];
+const STUDENTS = ['Martina González', 'Benjamín Rojas', 'Sofía Muñoz', 'Agustín Díaz', 'Isidora Pérez', 'Tomás Soto', 'Florencia Silva', 'Vicente Contreras'];
+const REPORT = [
+  ['OA 4 · I1', 'Convierten números mixtos en fracciones impropias', [86, 81, 74]],
+  ['OA 4 · I2', 'Resuelven adiciones de fracciones con distinto denominador', [62, 55, 47]],
+  ['OA 7 · I1', 'Explican el concepto de razón', [91, 84, 88]],
+  ['OA 7 · I2', 'Identifican razones equivalentes', [44, 52, 38]],
+  ['OA 7 · I3', 'Resuelven problemas que involucran razones', [71, 66, 58]],
+  ['OA 9 · I1', 'Calculan el porcentaje de una cantidad', [79, 83, 69]]
+];
+
+// ===================== Estado =====================
+const S = {
+  asig: '', nivel: '', oa: '', ind: [],
+  qs: JSON.parse(JSON.stringify(Q0)), editIdx: 1,
+  pubError: false, published: false,
+  student: 0, cam: 'encuadre', semaforo: false,
+  ans: [1, 2, null, 1, 2, null, 0, 0, 1, 2], cur: 2, sent: false, animate: true
+};
+
+// ===================== Utilidades UI =====================
+const $ = (s) => document.querySelector(s);
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.remove('hidden'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.add('hidden'), 2600); }
+const L = 'ABCD';
+function logo(light) {
+  return `<div class="flex items-center gap-2"><div class="w-8 h-8 rounded-lg ${light ? 'bg-white/15' : 'bg-navy'} grid place-items-center text-white font-bold">E</div><span class="font-bold text-lg ${light ? 'text-white' : 'text-navy'}">Eval<span class="text-gold">AI</span></span></div>`;
+}
+function desktop(role, user, body, active) {
+  const nav = role === 'utp' ? ['Reportes'] : ['Mis evaluaciones', 'Corregir', 'Reportes'];
+  return `<div id="capture" class="w-[1200px] min-h-[720px] bg-slate-50 rounded-xl overflow-hidden sheet-shadow flex">
+    <aside class="w-56 bg-navy text-white p-5 flex flex-col gap-6">
+      ${logo(true)}
+      <nav class="flex flex-col gap-1 text-sm">${nav.map(n => `<a class="px-3 py-2 rounded-lg ${n === active ? 'bg-white/15 font-semibold' : 'text-white/70'}">${n}</a>`).join('')}</nav>
+      <div class="mt-auto text-xs text-white/60">Colegio Alerce Andino</div>
+    </aside>
+    <div class="flex-1 flex flex-col">
+      <header class="h-16 bg-white border-b border-slate-200 px-8 flex items-center justify-between">
+        <div class="text-sm text-slate-500">${role === 'utp' ? 'Coordinación académica (UTP)' : 'Docente'}</div>
+        <div class="flex items-center gap-3"><span class="text-sm font-medium">${user}</span><div class="w-9 h-9 rounded-full bg-gold/20 text-gold grid place-items-center font-bold">${user.split(' ').map(x => x[0]).join('')}</div></div>
+      </header>
+      <section class="flex-1 p-8">${body}</section>
+    </div>
+  </div>`;
+}
+function phone(body, dark) {
+  return `<div id="capture" class="phone sheet-shadow ${dark ? 'bg-slate-900' : ''}"><div class="h-full flex flex-col ${dark ? 'text-white' : ''}">
+    <div class="h-10 px-6 pt-3 flex justify-between text-xs ${dark ? 'text-white/80' : 'text-slate-500'}"><span>19:42</span><span>●●● 5G ▮</span></div>
+    ${body}</div></div>`;
+}
+function student(body) {
+  return `<div id="capture" class="w-[1000px] min-h-[680px] bg-slate-50 rounded-xl overflow-hidden sheet-shadow flex flex-col">
+    <header class="h-16 bg-navy px-8 flex items-center justify-between">${logo(true)}<span class="text-white/80 text-sm">Martina González · 6° A</span></header>
+    <section class="flex-1 p-10">${body}</section></div>`;
+}
+function btn(label, cls = '', attrs = '') { return `<button ${attrs} class="px-4 py-2 rounded-lg text-sm font-semibold ${cls}">${label}</button>`; }
+const P1 = 'bg-navy text-white hover:bg-navy-900', P2 = 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-100';
+
+function qr(seed, size = 84) {
+  let h = 0; for (const ch of seed) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  const n = 21, cell = size / n; let r = '';
+  const finder = (x, y) => (x < 7 && y < 7) || (x >= n - 7 && y < 7) || (x < 7 && y >= n - 7);
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    let on;
+    if (finder(x, y)) { const fx = x >= n - 7 ? x - (n - 7) : x, fy = y >= n - 7 ? y - (n - 7) : y; on = fx === 0 || fx === 6 || fy === 0 || fy === 6 || (fx >= 2 && fx <= 4 && fy >= 2 && fy <= 4); }
+    else { h = (h * 1103515245 + 12345) >>> 0; on = (h >> 16) % 2 === 0; }
+    if (on) r += `<rect x="${x * cell}" y="${y * cell}" width="${cell + .2}" height="${cell + .2}"/>`;
+  }
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" fill="#111">${r}</svg>`;
+}
+function semColor(v) { return v < 50 ? 'bg-red-100 text-red-800' : v < 80 ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'; }
+function dot(v) { return v < 50 ? 'bg-red-500' : v < 80 ? 'bg-amber-400' : 'bg-emerald-500'; }
+
+// ===================== Pantallas =====================
+const SCREENS = [
+  { id: 'P-01', name: 'Panel del docente', hu: 'HU-1.1', hint: 'Pulsa «Nueva evaluación» para ir a P-02.', render() {
+    const rows = [['Fracciones y números mixtos', '6° A', 'Corregida', '28 de 32 hojas'], ['Porcentajes', '6° B', 'Publicada', 'En línea · 12 de 31 respuestas'], ['Comprensión de textos literarios', '6° A', 'Borrador', '—']];
+    const badge = { Corregida: 'bg-emerald-100 text-emerald-800', Publicada: 'bg-navy-50 text-navy', Borrador: 'bg-slate-200 text-slate-700' };
+    return desktop('doc', 'Carla Rojas', `
+      <div class="flex items-end justify-between mb-6"><div><h1 class="text-2xl font-bold text-navy">Hola, Carla</h1><p class="text-slate-500">Tienes 3 evaluaciones este mes.</p></div>
+      ${btn('+ Nueva evaluación', P1 + ' px-5 py-3 text-base', 'data-go="P-02"')}</div>
+      <div class="grid grid-cols-3 gap-4 mb-8">${[['Evaluaciones creadas', '12'], ['Hojas corregidas', '214'], ['Horas ahorradas (estimado)', '9,5']].map(([a, b]) => `<div class="bg-white rounded-xl p-5 border border-slate-200"><div class="text-sm text-slate-500">${a}</div><div class="text-3xl font-bold text-navy mt-1">${b}</div></div>`).join('')}</div>
+      <div class="bg-white rounded-xl border border-slate-200 overflow-hidden"><div class="px-6 py-4 font-semibold border-b">Mis evaluaciones</div>
+      <table class="w-full text-sm"><thead class="bg-slate-50 text-slate-500"><tr><th class="text-left px-6 py-3">Evaluación</th><th class="text-left">Curso</th><th class="text-left">Estado</th><th class="text-left">Avance</th><th></th></tr></thead>
+      <tbody>${rows.map(r => `<tr class="border-t"><td class="px-6 py-4 font-medium">${r[0]}</td><td>${r[1]}</td><td><span class="px-2 py-1 rounded-full text-xs font-semibold ${badge[r[2]]}">${r[2]}</span></td><td class="text-slate-500">${r[3]}</td><td class="pr-6 text-right"><a class="text-navy font-semibold">Abrir</a></td></tr>`).join('')}</tbody></table></div>`, 'Mis evaluaciones');
+  } },
+
+  { id: 'P-02', name: 'Nueva evaluación', hu: 'HU-1.1', hint: 'Elige asignatura y nivel: el selector de OA muestra solo los de esa combinación (CA-1.1-1). «Generar» se activa con al menos un indicador (CA-1.1-2).',
+    states: [['Vacía', () => { S.asig = S.nivel = S.oa = ''; S.ind = []; }], ['Completa', () => { S.asig = 'Matemática'; S.nivel = '6° básico'; S.oa = 'OA 7 · Razones'; S.ind = [0, 1, 2]; }]],
+    render() {
+    const niveles = S.asig ? Object.keys(CURR[S.asig]) : [];
+    const oas = S.asig && S.nivel ? CURR[S.asig][S.nivel] : [];
+    const oaObj = oas.find(o => o.oa === S.oa);
+    const ok = S.ind.length > 0;
+    const sel = (id, label, opts, val, dis) => `<label class="block"><span class="text-sm font-medium text-slate-600">${label}</span>
+      <select id="${id}" ${dis ? 'disabled' : ''} class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 ${dis ? 'bg-slate-100 text-slate-400' : ''}">
+      <option value="">Selecciona…</option>${opts.map(o => `<option ${o === val ? 'selected' : ''}>${o}</option>`).join('')}</select></label>`;
+    return desktop('doc', 'Carla Rojas', `
+      <div class="text-sm text-slate-500 mb-1">Mis evaluaciones › Nueva evaluación</div>
+      <h1 class="text-2xl font-bold text-navy mb-6">Nueva evaluación</h1>
+      <div class="flex gap-6">
+        <div class="flex-1 bg-white rounded-xl border border-slate-200 p-6 space-y-5">
+          <div class="grid grid-cols-2 gap-4">${sel('sAsig', '1. Asignatura', Object.keys(CURR), S.asig)}${sel('sNivel', '2. Nivel', niveles, S.nivel, !S.asig)}</div>
+          ${sel('sOa', '3. Objetivo de aprendizaje (OA)', oas.map(o => o.oa), S.oa, !S.nivel)}
+          <div><span class="text-sm font-medium text-slate-600">4. Indicadores de logro</span>
+          <div class="mt-2 space-y-2">${oaObj ? oaObj.ind.map((t, i) => `<label class="flex items-start gap-3 p-3 rounded-lg border ${S.ind.includes(i) ? 'border-navy bg-navy-50' : 'border-slate-200'} cursor-pointer"><input type="checkbox" data-ind="${i}" ${S.ind.includes(i) ? 'checked' : ''} class="mt-1 accent-[#1F3864]"><span class="text-sm">${t}</span></label>`).join('') : '<div class="text-sm text-slate-400 p-3 border border-dashed rounded-lg">Elige un OA para ver sus indicadores.</div>'}</div></div>
+        </div>
+        <div class="w-80 bg-white rounded-xl border border-slate-200 p-6 h-fit">
+          <div class="font-semibold mb-3">Resumen</div>
+          <dl class="text-sm space-y-2"><div class="flex justify-between"><dt class="text-slate-500">Preguntas</dt><dd>10 (por defecto)</dd></div><div class="flex justify-between"><dt class="text-slate-500">Dificultad</dt><dd>Intermedia</dd></div><div class="flex justify-between"><dt class="text-slate-500">Indicadores</dt><dd>${S.ind.length}</dd></div></dl>
+          ${btn('Generar preguntas', (ok ? P1 : 'bg-slate-200 text-slate-400 cursor-not-allowed') + ' w-full mt-6 py-3', ok ? 'data-go="P-03"' : 'disabled')}
+          ${ok ? '' : '<p class="text-xs text-amber-700 bg-amber-50 rounded-lg p-2 mt-3">Selecciona al menos un indicador de logro para generar preguntas.</p>'}
+        </div>
+      </div>`, 'Mis evaluaciones');
+  },
+    bind() {
+      const on = (id, f) => { const e = $('#' + id); if (e) e.onchange = (ev) => { f(ev.target.value); draw(); }; };
+      on('sAsig', v => { S.asig = v; S.nivel = S.oa = ''; S.ind = []; });
+      on('sNivel', v => { S.nivel = v; S.oa = ''; S.ind = []; });
+      on('sOa', v => { S.oa = v; S.ind = []; });
+      document.querySelectorAll('[data-ind]').forEach(c => c.onchange = () => { const i = +c.dataset.ind; S.ind = c.checked ? [...S.ind, i] : S.ind.filter(x => x !== i); draw(); });
+    } },
+
+  { id: 'P-03', name: 'Generando preguntas', hu: 'HU-1.2.1', hint: 'Simula la espera mientras la IA genera. Usa «Congelar» para capturar la barra quieta.',
+    states: [['Animar', () => S.animate = true], ['Congelar', () => S.animate = false]],
+    render() {
+    return desktop('doc', 'Carla Rojas', `<div class="h-full grid place-items-center"><div class="bg-white rounded-2xl border border-slate-200 p-12 w-[560px] text-center">
+      <div class="w-16 h-16 mx-auto rounded-full border-4 border-navy-100 border-t-navy ${S.animate ? 'spin' : ''}"></div>
+      <h2 class="text-xl font-bold text-navy mt-6">Generando preguntas con IA…</h2>
+      <p class="text-slate-500 mt-2">OA 7 · Razones · 3 indicadores de logro</p>
+      <div class="mt-6 h-2 bg-slate-100 rounded-full overflow-hidden"><div class="h-full bg-gold ${S.animate ? 'grow' : ''}" style="width:${S.animate ? '5' : '64'}%"></div></div>
+      <div class="flex justify-center gap-6 mt-6 text-sm text-slate-600"><span>10 preguntas</span><span>·</span><span>Dificultad intermedia</span><span>·</span><span>4 alternativas</span></div>
+      <p class="text-xs text-slate-400 mt-6">Esto toma menos de un minuto.</p></div></div>`, 'Mis evaluaciones');
+  }, bind() { clearTimeout(S._t); if (S.animate) S._t = setTimeout(() => { if (cur().id === 'P-03') go('P-04'); }, 3400); } },
+
+  { id: 'P-04', name: 'Preguntas generadas', hu: 'HU-1.2.1', hint: 'Diez preguntas con cuatro alternativas y la correcta marcada (CA-1.2-1). «Editar» lleva a P-05 y «Publicar» a P-06.', render() {
+    return desktop('doc', 'Carla Rojas', `
+      <div class="flex items-end justify-between mb-5"><div><div class="text-sm text-slate-500">Nueva evaluación › Revisión</div><h1 class="text-2xl font-bold text-navy">Razones · 6° básico</h1>
+      <p class="text-slate-500 text-sm">10 preguntas generadas · dificultad intermedia · revisa antes de publicar</p></div>
+      <div class="flex gap-2">${btn('Volver', P2, 'data-go="P-02"')}${btn('Publicar evaluación', P1, 'data-go="P-06"')}</div></div>
+      <div class="grid grid-cols-2 gap-4">${S.qs.map((q, n) => `<div class="bg-white rounded-xl border border-slate-200 p-4">
+        <div class="flex justify-between items-start gap-3"><div class="text-sm"><span class="font-bold text-navy">${n + 1}.</span> ${q.t}</div>
+        <button data-edit="${n}" class="text-xs font-semibold text-navy border border-navy-100 rounded-md px-2 py-1 hover:bg-navy-50 shrink-0">Editar</button></div>
+        <div class="grid grid-cols-2 gap-1.5 mt-3 text-xs">${q.a.map((a, j) => `<div class="px-2 py-1.5 rounded-md border ${j === q.c ? 'border-emerald-400 bg-emerald-50 text-emerald-900 font-semibold' : 'border-slate-200 text-slate-600'}">${L[j]}) ${a} ${j === q.c ? '✓' : ''}</div>`).join('')}</div>
+        <div class="text-[11px] text-slate-400 mt-2">${IND[q.i].split(' · ')[0]} · ${IND[q.i].split(' · ')[1]}</div></div>`).join('')}</div>`, 'Mis evaluaciones');
+  }, bind() { document.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => { S.editIdx = +b.dataset.edit; go('P-05'); }); } },
+
+  { id: 'P-05', name: 'Editar pregunta', hu: 'HU-1.3', hint: 'Se edita el enunciado, las alternativas y la correcta (CA-1.3-1). «Reemplazar» aún no tiene interacción: quedó para el Sprint 2.', render() {
+    const q = S.qs[S.editIdx];
+    return desktop('doc', 'Carla Rojas', `
+      <div class="text-sm text-slate-500 mb-1">Razones · 6° básico › Revisión › Pregunta ${S.editIdx + 1}</div>
+      <h1 class="text-2xl font-bold text-navy mb-6">Editar pregunta ${S.editIdx + 1}</h1>
+      <div class="bg-white rounded-xl border border-slate-200 p-6 max-w-3xl">
+        <label class="text-sm font-medium text-slate-600">Enunciado</label>
+        <textarea id="eT" rows="3" class="mt-1 w-full rounded-lg border border-slate-300 p-3">${q.t}</textarea>
+        <div class="text-sm font-medium text-slate-600 mt-5 mb-2">Alternativas <span class="font-normal text-slate-400">(marca la correcta)</span></div>
+        <div class="space-y-2">${q.a.map((a, j) => `<label class="flex items-center gap-3"><input type="radio" name="corr" value="${j}" ${j === q.c ? 'checked' : ''} class="w-4 h-4 accent-[#1F3864]"><span class="w-6 font-bold text-slate-500">${L[j]}</span><input data-alt="${j}" value="${a}" class="flex-1 rounded-lg border ${j === q.c ? 'border-emerald-400 bg-emerald-50' : 'border-slate-300'} px-3 py-2"></label>`).join('')}</div>
+        <div class="text-xs text-slate-400 mt-4">Indicador: ${IND[q.i]}</div>
+        <div class="flex justify-between mt-6 pt-5 border-t">
+          ${btn('↻ Reemplazar pregunta', P2, 'id="repl"')}
+          <div class="flex gap-2">${btn('Cancelar', P2, 'data-go="P-04"')}${btn('Guardar cambios', P1, 'id="save"')}</div></div>
+      </div>`, 'Mis evaluaciones');
+  }, bind() {
+    $('#repl').onclick = () => toast('Reemplazar pregunta: disponible en el Sprint 2 (CA-1.3-2).');
+    $('#save').onclick = () => { const q = S.qs[S.editIdx]; q.t = $('#eT').value; document.querySelectorAll('[data-alt]').forEach(i => q.a[+i.dataset.alt] = i.value); const r = document.querySelector('input[name=corr]:checked'); q.c = r ? +r.value : null; toast('Pregunta guardada.'); go('P-04'); };
+  } },
+
+  { id: 'P-06', name: 'Publicar evaluación', hu: 'HU-1.3', hint: 'Con error: no se puede publicar si una pregunta no tiene respuesta correcta (CA-1.3-3).',
+    states: [['Con error', () => { S.pubError = true; S.published = false; }], ['Sin errores', () => { S.pubError = false; S.published = false; }], ['Publicada', () => { S.pubError = false; S.published = true; }]],
+    render() {
+    const missing = S.pubError ? [7] : S.qs.map((q, i) => q.c == null ? i + 1 : 0).filter(Boolean);
+    const ok = missing.length === 0;
+    return desktop('doc', 'Carla Rojas', `
+      <div class="text-sm text-slate-500 mb-1">Razones · 6° básico › Publicar</div>
+      <h1 class="text-2xl font-bold text-navy mb-6">Publicar evaluación</h1>
+      <div class="grid grid-cols-3 gap-6">
+        <div class="col-span-2 bg-white rounded-xl border border-slate-200 p-6">
+          <div class="font-semibold mb-4">Revisión antes de publicar</div>
+          <ul class="space-y-3 text-sm">
+            <li class="flex gap-3"><span class="text-emerald-600">✔</span>10 preguntas de selección múltiple</li>
+            <li class="flex gap-3"><span class="text-emerald-600">✔</span>3 indicadores de logro cubiertos</li>
+            <li class="flex gap-3">${ok ? '<span class="text-emerald-600">✔</span>Todas las preguntas tienen respuesta correcta' : `<span class="text-red-600">✖</span><span class="text-red-700 font-medium">La pregunta ${missing.join(', ')} no tiene respuesta correcta marcada</span>`}</li>
+          </ul>
+          ${ok ? '' : `<div class="mt-5 rounded-lg bg-red-50 border border-red-200 p-4 text-sm text-red-800">No se puede publicar una evaluación con preguntas sin respuesta correcta. <a class="font-semibold underline" data-go="P-05">Corregir la pregunta ${missing[0]}</a></div>`}
+        </div>
+        <div class="bg-white rounded-xl border border-slate-200 p-6 h-fit space-y-3">
+          <div class="font-semibold">Curso</div><div class="rounded-lg border px-3 py-2 text-sm">6° A · 32 estudiantes</div>
+          <div class="font-semibold pt-2">Forma de aplicación</div>
+          <label class="flex gap-2 text-sm"><input type="checkbox" checked class="accent-[#1F3864]"> Impresa con hoja de respuestas y QR</label>
+          <label class="flex gap-2 text-sm"><input type="checkbox" checked class="accent-[#1F3864]"> En línea</label>
+          ${btn('Publicar', (ok ? P1 : 'bg-slate-200 text-slate-400 cursor-not-allowed') + ' w-full py-3', ok ? 'id="pub"' : 'disabled')}
+        </div>
+      </div>
+      `, 'Mis evaluaciones').replace('</section>', S.published ? `<div class="absolute inset-0 bg-slate-900/40 grid place-items-center"><div class="bg-white rounded-2xl p-8 w-[440px] text-center shadow-xl">
+        <div class="w-14 h-14 rounded-full bg-emerald-100 text-emerald-600 grid place-items-center mx-auto text-2xl">✓</div>
+        <h2 class="text-xl font-bold text-navy mt-4">Evaluación publicada</h2><p class="text-sm text-slate-500 mt-1">Razones · 6° A · en línea e impresa</p>
+        <div class="flex gap-2 justify-center mt-6">${btn('Ir al panel', P2, 'data-go="P-01"')}${btn('Descargar imprimible', P1, 'data-go="P-07"')}</div></div></div></section>` : '</section>').replace('class="flex-1 flex flex-col"', 'class="flex-1 flex flex-col relative"');
+  }, bind() { const p = $('#pub'); if (p) p.onclick = () => { S.published = true; draw(); }; } },
+
+  { id: 'P-07', name: 'Descargar imprimible', hu: 'HU-4', hint: 'Vista previa del PDF: enunciados y una hoja de respuestas con QR por estudiante (CA-4-1, CA-4-2). Cambia el estudiante para ver otro QR.', render() {
+    const st = STUDENTS[S.student];
+    return desktop('doc', 'Carla Rojas', `
+      <div class="flex items-end justify-between mb-5"><div><div class="text-sm text-slate-500">Razones · 6° A › Versión imprimible</div><h1 class="text-2xl font-bold text-navy">Vista previa del PDF</h1></div>
+      <div class="flex gap-2 items-center"><select id="stSel" class="rounded-lg border border-slate-300 px-3 py-2 text-sm">${STUDENTS.map((s, i) => `<option value="${i}" ${i === S.student ? 'selected' : ''}>Hoja de ${s}</option>`).join('')}</select>${btn('⬇ Descargar PDF (32 hojas)', P1, 'id="dlpdf"')}</div></div>
+      <div class="flex gap-6 justify-center bg-slate-200 rounded-xl p-6">
+        <div class="bg-white w-[380px] h-[490px] p-6 text-[10px] leading-snug shadow">
+          <div class="flex justify-between border-b pb-2 mb-3"><b class="text-[12px]">Evaluación · Razones</b><span>6° A · Matemática</span></div>
+          ${S.qs.slice(0, 6).map((q, n) => `<div class="mb-2.5"><b>${n + 1}.</b> ${q.t}<div class="grid grid-cols-2 gap-x-3 mt-1 text-slate-600">${q.a.map((a, j) => `<span>${L[j]}) ${a}</span>`).join('')}</div></div>`).join('')}
+          <div class="text-center text-slate-400 mt-2">Página 1 de 2</div></div>
+        <div class="bg-white w-[380px] h-[490px] p-6 text-[10px] shadow flex flex-col">
+          <div class="flex justify-between items-start border-b pb-3"><div><b class="text-[12px]">Hoja de respuestas</b><div class="mt-1">Estudiante: <b>${st}</b></div><div>Curso: 6° A · Matemática · Razones</div><div>Docente: Carla Rojas</div></div>${qr(st + 'razones', 78)}</div>
+          <div class="text-slate-500 mt-3 mb-2">Rellena completamente un círculo por pregunta.</div>
+          <div class="grid grid-cols-2 gap-x-6 gap-y-2">${S.qs.map((_, n) => `<div class="flex items-center gap-2"><b class="w-4 text-right">${n + 1}</b>${[0, 1, 2, 3].map(j => `<span class="w-5 h-5 rounded-full border border-slate-700 grid place-items-center text-[8px]">${L[j]}</span>`).join('')}</div>`).join('')}</div>
+          <div class="mt-auto flex justify-between text-slate-400"><span>■</span><span>Fotografía la hoja completa dentro del marco</span><span>■</span></div></div>
+      </div>`, 'Mis evaluaciones');
+  }, bind() { $('#stSel').onchange = (e) => { S.student = +e.target.value; draw(); }; $('#dlpdf').onclick = () => toast('Se descargaría el PDF con 32 hojas de respuestas.'); } },
+
+  { id: 'P-08', name: 'Tomar y procesar la foto', hu: 'HU-2.1', hint: 'Vista del celular. Pulsa el disparador: pasa a «procesando» y luego al resultado (P-09).',
+    states: [['Encuadre', () => S.cam = 'encuadre'], ['Procesando', () => S.cam = 'procesando']],
+    render() {
+    const proc = S.cam === 'procesando';
+    return phone(`
+      <div class="px-5 py-2 flex justify-between items-center"><span class="text-sm font-semibold">Corregir · Razones 6° A</span><span class="text-xs bg-white/15 rounded-full px-2 py-1">14 / 32</span></div>
+      <div class="flex-1 relative mx-4 rounded-2xl overflow-hidden bg-slate-700">
+        <div class="absolute inset-6 bg-white rounded-sm rotate-[-2deg] p-3 text-[7px] text-slate-700 flex flex-col">
+          <div class="flex justify-between"><div><b>Hoja de respuestas</b><br>Martina González · 6° A</div>${qr('Martina Gonzálezrazones', 44)}</div>
+          <div class="grid grid-cols-2 gap-x-3 gap-y-1.5 mt-3">${S.qs.map((_, n) => `<div class="flex items-center gap-1"><b class="w-3">${n + 1}</b>${[0, 1, 2, 3].map(j => `<span class="w-3.5 h-3.5 rounded-full border border-slate-600 ${[1, 2, 2, 1, 2, 1, 0, 0, 0, 2][n] === j ? 'bg-slate-800' : ''}"></span>`).join('')}</div>`).join('')}</div></div>
+        ${['top-3 left-3 border-t-4 border-l-4', 'top-3 right-3 border-t-4 border-r-4', 'bottom-3 left-3 border-b-4 border-l-4', 'bottom-3 right-3 border-b-4 border-r-4'].map(c => `<div class="absolute w-10 h-10 ${c} border-gold rounded-sm"></div>`).join('')}
+        ${proc ? `<div class="absolute inset-0 bg-slate-900/70 grid place-items-center"><div class="text-center"><div class="w-12 h-12 mx-auto rounded-full border-4 border-white/20 border-t-gold spin"></div><div class="mt-4 font-semibold">Leyendo la hoja…</div><div class="text-xs text-white/70 mt-2 space-y-1"><div>✓ Código QR leído</div><div>Reconociendo marcas…</div></div></div></div>` : ''}
+      </div>
+      <p class="text-center text-xs text-white/70 mt-3 px-6">${proc ? 'No muevas el celular' : 'Ubica la hoja completa dentro del marco'}</p>
+      <div class="h-28 flex items-center justify-center"><button id="shoot" class="w-16 h-16 rounded-full border-4 border-white grid place-items-center"><span class="w-12 h-12 rounded-full bg-white block"></span></button></div>`, true);
+  }, bind() { clearTimeout(S._t); $('#shoot').onclick = () => { S.cam = 'procesando'; draw(); S._t = setTimeout(() => { S.cam = 'encuadre'; go('P-09'); }, 2000); }; } },
+
+  { id: 'P-09', name: 'Resultado de la hoja', hu: 'HU-2.1', hint: 'El QR identifica al estudiante sin seleccionarlo; muestra puntaje y logro por indicador (CA-2-1). «Corregir de nuevo» lleva a P-10.', render() {
+    const ok = [1, 1, 0, 1, 1, 0, 1, 1, 0, 1];
+    const per = [0, 1, 2].map(i => { const ids = Q0.map((q, n) => q.i === i ? n : -1).filter(n => n >= 0); return Math.round(ids.filter(n => ok[n]).length / ids.length * 100); });
+    return phone(`
+      <div class="px-5 py-2 flex justify-between items-center"><a data-go="P-08" class="text-navy text-sm">‹ Cámara</a><span class="text-sm font-semibold">Resultado</span><span class="w-10"></span></div>
+      <div class="flex-1 overflow-hidden px-5">
+        <div class="rounded-2xl bg-emerald-50 border border-emerald-200 p-4 flex items-center gap-3"><div class="w-10 h-10 rounded-full bg-emerald-500 text-white grid place-items-center">✓</div><div><div class="text-xs text-emerald-700">Identificada por el código QR</div><div class="font-bold">Martina González · 6° A</div></div></div>
+        <div class="text-center my-5"><div class="text-5xl font-bold text-navy">7<span class="text-2xl text-slate-400">/10</span></div><div class="text-sm text-slate-500 mt-1">70% de logro · corregida en 4 s</div></div>
+        <div class="font-semibold text-sm mb-2">Logro por indicador</div>
+        <div class="space-y-3">${IND.map((t, i) => `<div><div class="flex justify-between text-xs mb-1"><span>${t}</span><b>${per[i]}%</b></div><div class="h-2.5 bg-slate-100 rounded-full"><div class="h-full rounded-full bg-navy" style="width:${Math.max(per[i], 2)}%"></div></div></div>`).join('')}</div>
+        <div class="flex flex-wrap gap-1 mt-5">${ok.map((o, n) => `<span class="w-7 h-7 rounded-md text-xs grid place-items-center font-semibold ${o ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-700'}">${n + 1}</span>`).join('')}</div>
+      </div>
+      <div class="p-5 space-y-2">${btn('Siguiente hoja', P1 + ' w-full py-3', 'data-go="P-08"')}${btn('Corregir de nuevo esta hoja', P2 + ' w-full py-3', 'data-go="P-10"')}</div>`);
+  } },
+
+  { id: 'P-10', name: 'Hoja ya corregida', hu: 'HU-2.1', hint: 'Una hoja ya corregida no se reemplaza sin confirmación (CA-2-3).', render() {
+    return phone(`
+      <div class="px-5 py-2 text-center text-sm font-semibold">Corregir · Razones 6° A</div>
+      <div class="flex-1 relative bg-slate-100">
+        <div class="absolute inset-0 bg-slate-900/50"></div>
+        <div class="absolute inset-x-4 top-1/2 -translate-y-1/2 bg-white rounded-2xl p-6 shadow-xl">
+          <div class="w-12 h-12 rounded-full bg-amber-100 text-amber-600 grid place-items-center text-xl mx-auto">!</div>
+          <h2 class="text-lg font-bold text-center mt-3">Esta hoja ya fue corregida</h2>
+          <div class="rounded-xl bg-slate-50 border p-3 mt-4 text-sm"><div class="font-semibold">Martina González · 6° A</div><div class="text-slate-500 text-xs mt-1">Resultado anterior: 7/10 · 12 nov, 19:42</div></div>
+          <p class="text-sm text-slate-600 mt-4 text-center">¿Quieres reemplazar el resultado anterior por el de esta foto?</p>
+          <div class="grid grid-cols-2 gap-2 mt-5">${btn('Cancelar', P2 + ' py-3', 'data-go="P-09"')}${btn('Reemplazar', 'bg-amber-500 text-white py-3', 'id="rep"')}</div>
+        </div>
+      </div>`);
+  }, bind() { $('#rep').onclick = () => { toast('Resultado reemplazado.'); go('P-09'); }; } },
+
+  { id: 'P-11', name: 'Reporte de logro (UTP)', hu: 'HU-3.1', hint: 'Logro por indicador agregado por curso (CA-3-2, CA-3-3). Versión 2: semáforo rojo < 50%, amarillo 50–79%, verde ≥ 80% (CA-3-8, mejora M-2).',
+    states: [['Versión 1', () => S.semaforo = false], ['Versión 2 · semáforo', () => S.semaforo = true]],
+    render() {
+    const cell = (v) => S.semaforo ? `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-semibold ${semColor(v)}"><span class="w-2 h-2 rounded-full ${dot(v)}"></span>${v}%</span>` : `<span class="font-medium">${v}%</span>`;
+    const avg = (a) => Math.round(a.reduce((x, y) => x + y, 0) / a.length);
+    return desktop('utp', 'Patricia Leiva', `
+      <div class="flex items-end justify-between mb-5"><div><div class="text-sm text-slate-500">Reportes</div><h1 class="text-2xl font-bold text-navy">Logro por indicador</h1>
+      <p class="text-slate-500 text-sm">Matemática · 6° básico · 2° semestre 2026 · 11 evaluaciones corregidas</p></div>
+      ${S.semaforo ? `<div class="flex gap-3 text-xs bg-white border rounded-lg px-3 py-2">${[['bg-red-500', 'Bajo 50%'], ['bg-amber-400', '50% a 79%'], ['bg-emerald-500', '80% o más']].map(([c, t]) => `<span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full ${c}"></span>${t}</span>`).join('')}</div>` : ''}</div>
+      <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      <table class="w-full text-sm"><thead class="bg-navy-50 text-navy"><tr><th class="text-left px-5 py-3 w-28">Indicador</th><th class="text-left">Descripción</th>${['6° A', '6° B', '6° C', 'Nivel'].map(c => `<th class="w-28 text-center">${c}</th>`).join('')}</tr></thead>
+      <tbody>${REPORT.map(r => `<tr class="border-t"><td class="px-5 py-3.5 font-semibold text-navy">${r[0]}</td><td class="text-slate-600">${r[1]}</td>${r[2].map(v => `<td class="text-center">${cell(v)}</td>`).join('')}<td class="text-center font-bold">${cell(avg(r[2]))}</td></tr>`).join('')}</tbody></table></div>
+      <p class="text-xs text-slate-400 mt-3">Datos agregados por curso. Los resultados individuales solo los ve el docente de cada curso.</p>
+      ${S.semaforo ? `<div class="mt-4 rounded-xl bg-red-50 border border-red-200 p-4 text-sm text-red-800"><b>Requiere atención:</b> OA 7 · I2 (Identifican razones equivalentes) está bajo 50% en 6° A y 6° C.</div>` : ''}`, 'Reportes');
+  } },
+
+  { id: 'P-12', name: 'Responder en línea', hu: 'HU-7 · mejora M-1', hint: 'El estudiante responde pregunta por pregunta y puede avanzar y volver (CA-7-1).', render() {
+    const q = S.qs[S.cur];
+    return student(`
+      <div class="flex justify-between items-center mb-2"><div><div class="text-sm text-slate-500">Evaluación en línea · Matemática</div><h1 class="text-xl font-bold text-navy">Razones</h1></div><div class="text-sm text-slate-500">Pregunta <b class="text-navy">${S.cur + 1}</b> de 10</div></div>
+      <div class="flex gap-1.5 mb-8">${S.qs.map((_, n) => `<button data-jump="${n}" class="h-2 flex-1 rounded-full ${n === S.cur ? 'bg-gold' : S.ans[n] != null ? 'bg-navy' : 'bg-slate-200'}"></button>`).join('')}</div>
+      <div class="bg-white rounded-2xl border border-slate-200 p-8">
+        <p class="text-lg font-medium">${S.cur + 1}. ${q.t}</p>
+        <div class="space-y-3 mt-6">${q.a.map((a, j) => `<label class="flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer ${S.ans[S.cur] === j ? 'border-navy bg-navy-50' : 'border-slate-200 hover:border-slate-300'}"><input type="radio" name="ans" data-ans="${j}" ${S.ans[S.cur] === j ? 'checked' : ''} class="w-5 h-5 accent-[#1F3864]"><span class="w-7 h-7 rounded-full bg-slate-100 grid place-items-center font-bold text-sm">${L[j]}</span><span>${a}</span></label>`).join('')}</div>
+      </div>
+      <div class="flex justify-between mt-6">${btn('‹ Anterior', P2 + (S.cur === 0 ? ' opacity-40' : ''), 'id="pv"')}
+      ${S.cur === 9 ? btn('Revisar y enviar', P1, 'data-go="P-13"') : btn('Siguiente ›', P1, 'id="nx"')}</div>`);
+  }, bind() {
+    document.querySelectorAll('[data-ans]').forEach(r => r.onchange = () => { S.ans[S.cur] = +r.dataset.ans; draw(); });
+    document.querySelectorAll('[data-jump]').forEach(b => b.onclick = () => { S.cur = +b.dataset.jump; draw(); });
+    const pv = $('#pv'); if (pv) pv.onclick = () => { if (S.cur > 0) { S.cur--; draw(); } };
+    const nx = $('#nx'); if (nx) nx.onclick = () => { S.cur++; draw(); };
+  } },
+
+  { id: 'P-13', name: 'Enviar evaluación', hu: 'HU-7 · mejora M-1', hint: 'Antes de enviar muestra las preguntas sin responder; el envío es único (CA-7-2) y el resultado llega al reporte (CA-7-3).',
+    states: [['Confirmar envío', () => S.sent = false], ['Enviada', () => S.sent = true]],
+    render() {
+    const pend = S.ans.map((a, n) => a == null ? n + 1 : 0).filter(Boolean);
+    const body = S.sent ? `<div class="bg-white rounded-2xl border border-slate-200 p-10 max-w-lg mx-auto text-center">
+        <div class="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 grid place-items-center text-3xl mx-auto">✓</div>
+        <h2 class="text-2xl font-bold text-navy mt-5">Evaluación enviada</h2><p class="text-slate-500 mt-2">Tus respuestas quedaron registradas el 2 de diciembre a las 10:14.</p>
+        <p class="text-sm text-slate-500 mt-4 bg-slate-50 rounded-lg p-3">Ya no puedes volver a enviar esta evaluación.</p></div>`
+      : `<div class="bg-white rounded-2xl border border-slate-200 p-8 max-w-lg mx-auto">
+        <h2 class="text-xl font-bold text-navy">¿Enviar la evaluación?</h2>
+        <div class="grid grid-cols-2 gap-3 mt-5"><div class="rounded-xl bg-navy-50 p-4"><div class="text-3xl font-bold text-navy">${10 - pend.length}</div><div class="text-sm text-slate-600">respondidas</div></div>
+        <div class="rounded-xl ${pend.length ? 'bg-amber-50' : 'bg-emerald-50'} p-4"><div class="text-3xl font-bold ${pend.length ? 'text-amber-600' : 'text-emerald-600'}">${pend.length}</div><div class="text-sm text-slate-600">sin responder</div></div></div>
+        ${pend.length ? `<p class="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-3 mt-4">Te faltan las preguntas ${pend.join(' y ')}. <a class="font-semibold underline" id="goq">Volver a responderlas</a></p>` : ''}
+        <p class="text-sm text-slate-500 mt-4">Solo puedes enviar la evaluación una vez.</p>
+        <div class="flex gap-2 justify-end mt-6">${btn('Seguir respondiendo', P2, 'data-go="P-12"')}${btn('Enviar evaluación', P1, 'id="send"')}</div></div>`;
+    return student(`<div class="pt-6">${body}</div>`);
+  }, bind() {
+    const s = $('#send'); if (s) s.onclick = () => { S.sent = true; draw(); };
+    const g = $('#goq'); if (g) g.onclick = () => { S.cur = S.ans.findIndex(a => a == null); go('P-12'); };
+  } }
+];
+
+// ===================== Navegación =====================
+let idx = 0;
+const cur = () => SCREENS[idx];
+function go(id) { const i = SCREENS.findIndex(s => s.id === id); if (i >= 0) { idx = i; history.replaceState(null, '', '#' + id); draw(); } }
+function draw() {
+  const sc = cur();
+  $('#stage').innerHTML = '<div class="w-max mx-auto">' + sc.render() + '</div>';
+  $('#screenSel').value = sc.id;
+  $('#hint').innerHTML = `<b class="text-gold">${sc.id} · ${sc.name}</b> · ${sc.hu} — ${sc.hint}`;
+  $('#states').innerHTML = (sc.states || []).map((s, i) => `<button data-st="${i}" class="px-2 py-1 rounded text-xs bg-slate-700 hover:bg-slate-600">${s[0]}</button>`).join('');
+  document.querySelectorAll('[data-st]').forEach(b => b.onclick = () => { sc.states[+b.dataset.st][1](); draw(); });
+  document.querySelectorAll('#stage [data-go]').forEach(e => e.addEventListener('click', () => go(e.dataset.go)));
+  if (sc.bind) sc.bind();
+}
+$('#screenSel').innerHTML = SCREENS.map(s => `<option value="${s.id}">${s.id} · ${s.name} (${s.hu})</option>`).join('');
+$('#screenSel').onchange = (e) => go(e.target.value);
+$('#prev').onclick = () => { idx = (idx - 1 + SCREENS.length) % SCREENS.length; go(cur().id); };
+$('#next').onclick = () => { idx = (idx + 1) % SCREENS.length; go(cur().id); };
+function toggleBar() {
+  const hidden = $('#toolbar').classList.toggle('hidden');
+  $('#showBar').classList.toggle('hidden', !hidden);
+  $('#stage').classList.toggle('pt-28', !hidden); $('#stage').classList.toggle('pt-10', hidden);
+}
+$('#hide').onclick = toggleBar; $('#showBar').onclick = toggleBar;
+document.addEventListener('keydown', (e) => {
+  if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) return;
+  if (e.key === 'h' || e.key === 'H') toggleBar();
+  if (e.key === 'ArrowRight') $('#next').click();
+  if (e.key === 'ArrowLeft') $('#prev').click();
+});
+$('#dl').onclick = async () => {
+  const el = $('#capture'); const sc = cur();
+  if (!window.html2canvas) { toast('No se pudo cargar la librería de captura. Usa la captura de pantalla del sistema.'); return; }
+  toast('Generando imagen…');
+  const extra = (sc.states || []).length && sc.id === 'P-11' ? (S.semaforo ? '_v2' : '_v1') : '';
+  const canvas = await html2canvas(el, { scale: 2, backgroundColor: null, useCORS: true });
+  const a = document.createElement('a');
+  a.download = `${sc.id}_${sc.name.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w]+/g, '_')}${extra}.png`;
+  a.href = canvas.toDataURL('image/png'); a.click();
+};
+go((location.hash || '#P-01').slice(1));
+</script>
+</body>
+</html>

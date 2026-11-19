@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EvalAI · Mockups</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com/3.4.16"></script>
+<script>
+  // Configuración de Tailwind (debe ir antes de que se pinte la página)
+  tailwind.config = { theme: { extend: {
+    colors: {
+      navy: { DEFAULT: '#1F3864', 50: '#EAF0F8', 100: '#D9E2F3', 700: '#1F3864', 900: '#14254A' },
+      gold: { DEFAULT: '#C99A2E', 50: '#FBF1DC' }
+    },
+    fontFamily: { sans: ['Inter', 'system-ui', 'Segoe UI', 'Arial', 'sans-serif'] }
+  } } };
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body class="font-sans text-slate-800 antialiased">
+
+<!-- Barra de control (no forma parte del mockup). Oculta por defecto: tecla H o botón «Menú». -->
+<div id="toolbar" class="toolbar fixed top-0 inset-x-0 z-50 bg-slate-900 text-white shadow-lg hidden">
+  <div class="max-w-[1400px] mx-auto px-4 pt-2 flex flex-wrap items-center gap-2">
+    <button data-go="P-00" class="font-semibold text-gold mr-2 hover:underline" title="Mapa de pantallas (M)">EvalAI · Mockups</button>
+    <div id="profiles" class="flex flex-wrap gap-1"></div>
+  </div>
+  <div class="max-w-[1400px] mx-auto px-4 py-2 flex flex-wrap items-center gap-2">
+    <button id="prev" class="tb-btn" title="Anterior (←)">←</button>
+    <select id="screenSel" class="bg-slate-800 border border-slate-600 rounded px-2 py-1 text-sm max-w-[24rem]"></select>
+    <button id="next" class="tb-btn" title="Siguiente (→)">→</button>
+    <div id="states" class="flex flex-wrap gap-1 ml-2"></div>
+    <div class="ml-auto flex gap-2">
+      <button id="dl" class="px-3 py-1 rounded bg-gold text-slate-900 font-semibold hover:brightness-110 text-sm">Descargar PNG</button>
+      <button id="hide" class="tb-btn text-sm" title="Tecla H">Ocultar barra</button>
+    </div>
+  </div>
+  <div id="hint" class="max-w-[1400px] mx-auto px-4 pb-2 text-xs text-slate-300"></div>
+</div>
+
+<!-- Botón flotante para mostrar la barra cuando está oculta -->
+<button id="showBar" class="fab" title="Mostrar barra (H)"><span id="fabId">P-00</span> · ☰ Menú</button>
+
+<main id="stage" class="pt-10 pb-10 px-4 min-h-screen overflow-x-auto"></main>
+<div id="toast" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white text-sm px-4 py-2 rounded-lg shadow-lg"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
